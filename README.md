@@ -21,7 +21,7 @@ update @ 2025/06/23
 
 ![image](https://github.com/released/Sample_Project_RH850_S1_CAN_FD_RX_Polling_No_Rule/blob/main/log_MCU_power_on.jpg)
 
-5. when use UART terminal , to send CAN TX message , to RH850 EVB
+5. when use UART terminal , which send CAN TX message from RH850 EVB , and rececive with PCAN
 
 
 digit 1 , 
