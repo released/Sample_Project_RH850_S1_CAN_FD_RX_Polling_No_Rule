@@ -495,6 +495,159 @@ typedef struct _can_bus_parameter_t
 }CAN_BUS_PARAMETER_T;
 
 
+enum
+{
+	OTHER_NODE_TRANSMIT_MSG_RECEIVED=0,
+    OWN_TRANSMIT_MSG_RECEIVED
+};
+
+enum
+{
+	RTR_BIT_NOT_COMPARED=0,
+    RTR_BIT_IS_COMPARED
+};
+enum
+{
+	IDE_BIT_NOT_COMPARED=0,
+    IDE_BIT_IS_COMPARED
+};
+enum
+{
+	NO_RECEIVE_BUFFER_IS_USED=0,
+    A_RECEIVE_BUFFER_IS_USED
+};
+
+#define TRANSMIT_RECEIVE_FIFO_BUFFER_IS_NOT_SELECTED    (0U)
+
+#define ALL_ID_BIT_IS_NOT_COMPARED                      (0U)
+#define STANDARD_ID_BIT_IS_COMPARED                     (0xFFFU)
+#define EXTEND_ID_BIT_IS_COMPARED                       (0x1FFFFFFFU)
+
+#define RESERVED_BIT                                    (0U)
+typedef struct _can_rx_rule_table_t
+{
+    /*****************************/
+    //RCFDCnCFDGAFLIDj
+    /*
+        ID 
+        Set the ID of the receive rule. 
+        For the standard ID, set the ID in bits b10 to b0 and set bits b28 to b11 to 0.     
+    */
+    unsigned long GAFLID:29;
+
+    /*
+        Receive Rule Target Message Select 
+        0: When a message transmitted from another CAN node is received 
+        1: When the own transmitted message is received     
+    */
+    unsigned char GAFLLB:1;
+
+    /*
+        RTR Select 
+        0: Data frame 
+        1: Remote frame     
+    */
+    unsigned char GAFLRTR:1;
+
+    /*
+        IDE Select 
+        0: Standard ID 
+        1: Extended ID      
+    */
+    unsigned char GAFLIDE:1;
+
+    /*****************************/
+    //RCFDCnCFDGAFLMj
+    /*
+        ID Mask 
+        0: The corresponding ID bit is not compared. 
+        1: The corresponding ID bit is compared.     
+    */
+    unsigned long GAFLIDM:29;
+    unsigned char Reserved0:1;
+
+    /*
+        RTR Mask 
+        0: The RTR bit is not compared. 
+        1: The RTR bit is compared.     
+    */
+    unsigned char GAFLRTRM:1;
+
+    /*
+        IDE Mask 
+        0: The IDE bit is not compared. 
+        1: The IDE bit is compared.     
+    */
+    unsigned char GAFLIDEM:1;
+
+    /*****************************/
+    //RCFDCnCFDGAFLP0_j
+    
+    /*
+        GAFLDLC[3:0]  Receive Rule DLC 
+
+        b3  b2  b1  b0      Classical CAN Frame         CAN FD Frame 
+        0   0   0   0       DLC check is disabled   
+        0   0   0   1       1 data byte 
+        0   0   1   0       2 data bytes 
+        0   0   1   1       3 data bytes 
+        0   1   0   0       4 data bytes 
+        0   1   0   1       5 data bytes 
+        0   1   1   0       6 data bytes 
+        0   1   1   1       7 data bytes 
+        1   0   0   0       8 data bytes 
+        1   0   0   1       8 data bytes                12 data bytes 
+        1   0   1   0                                   16 data bytes 
+        1   0   1   1                                   20 data bytes 
+        1   1   0   0                                   24 data bytes 
+        1   1   0   1                                   32 data bytes 
+        1   1   1   0                                   48 data bytes 
+        1   1   1   1                                   64 data bytes 
+
+    */
+    unsigned char GAFLDLC:4;
+
+    unsigned char Reserved1:4;
+
+    /*
+        Receive Buffer Number Select 
+        Set the receive buffer number to store receive messages.     
+    */
+    unsigned char GAFLRMDP:7;
+
+    /*
+        Receive Buffer Enable 
+        0: No receive buffer is used. 
+        1: A receive buffer is used.     
+    */
+    unsigned char GAFLRMV:1;
+
+    /*
+        Receive Rule Label 
+        Set the 16-bit label information.     
+    */
+    unsigned short GAFLPTR:16;
+
+    /*****************************/
+    //RCFDCnCFDGAFLP1_j
+    /*
+        Receive FIFO Buffer x Select 
+        (Bit position = target receive FIFO buffer number x) 
+        0: Receive FIFO buffer is not selected. 
+        1: Receive FIFO buffer is selected.     
+    */
+    unsigned short GAFLFDP_x:16;
+
+    /*
+        Transmit/Receive FIFO Buffer k Select 
+        (Bit position ¡V8 = target transmit/receive FIFO buffer number k) 
+        0: Transmit/receive FIFO buffer is not selected. 
+        1: Transmit/receive FIFO buffer is selected.     
+    */    
+    unsigned short GAFLFDP_k:16;
+
+}CAN_RX_RULE_TABLE_T;
+
 //===============================================
 typedef enum
 {

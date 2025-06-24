@@ -36,6 +36,10 @@ digit 3 ,
 ![image](https://github.com/released/Sample_Project_RH850_S1_CAN_FD_RX_Polling_No_Rule/blob/main/log_tx3.jpg)
 
 
+digit 4 , 
+![image](https://github.com/released/Sample_Project_RH850_S1_CAN_FD_RX_Polling_No_Rule/blob/main/log_tx4.jpg)
+
+
 6. Below is different ID test condition , which send by PCAN , and rececive with RH850 RX
 
 

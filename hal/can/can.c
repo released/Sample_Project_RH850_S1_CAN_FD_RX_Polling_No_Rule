@@ -472,6 +472,13 @@ static void can_init_rx_rule_table_page_setting(CAN_REG_TYP * can,
                                                  CAN_RRT_PAGE_SET_e page_sel,
                                                  CAN_BUS_RX_INFO_HANDLE *ptr)
 {
+    /*
+        Receive rule ID register            RCFDCnCFDGAFLIDj    <RCFDCn_base> + 1000 H + (10 H × j) 
+        Receive rule mask register          RCFDCnCFDGAFLMj     <RCFDCn_base> + 1004 H + (10 H × j) 
+        Receive rule pointer 0 register     RCFDCnCFDGAFLP0_j   <RCFDCn_base> + 1008 H + (10 H × j)
+        Receive rule pointer 1 register     RCFDCnCFDGAFLP1_j   <RCFDCn_base> + 100C H + (10 H × j)  
+    */
+
     volatile struct RRT_PAGE_SET * rrt_page = (volatile struct RRT_PAGE_SET *)(&can->CFDGAFLID0.UINT32);
     unsigned int j=0;
        
@@ -506,57 +513,23 @@ static void can_init_rx_rule_table_page_setting(CAN_REG_TYP * can,
 
         [accept extened ID]
         CFDGAFLID  = (1UL << 31);
-
     */
 
-    for(j=0;j<16;j++)
+    for(j=0;j<CAN_RX_RULE_CURRENT_AMOUNT;j++)
     {
         CAN_REG_SET(rrt_page[j].CFDGAFLID ,CAN_REG_BIT0,ptr[j].id.all);    
         // CAN_REG_SET(rrt_page[j].CFDGAFLID ,CAN_REG_BIT0,0x00000000);   
         // CAN_REG_SET(rrt_page[j].CFDGAFLID ,CAN_REG_BIT0,(1UL << 31));   
         
-        /*
-            GAFLIDM[28:0]  ID Mask 
-            0: The corresponding ID bit is not compared. 
-            1: The corresponding ID bit is compared.         
-        */
         CAN_REG_SET(rrt_page[j].CFDGAFLM ,CAN_REG_BIT0,ptr[j].mask.all);
         // CAN_REG_SET(rrt_page[j].CFDGAFLM ,CAN_REG_BIT0,(1UL << 31) | (1UL << 30));  //compare IDE,RTR
         // CAN_REG_SET(rrt_page[j].CFDGAFLM ,CAN_REG_BIT0,0x00000000);// not compare          
         // CAN_REG_CLR(rrt_page[j].CFDGAFLM ,CAN_REG_BIT0,0x1FFFFFFF);// compare all
-
-        /*
-            GAFLDLC[3:0]  Receive Rule DLC 
-
-            b3  b2  b1  b0      Classical CAN Frame         CAN FD Frame 
-            0   0   0   0       DLC check is disabled   
-            0   0   0   1       1 data byte 
-            0   0   1   0       2 data bytes 
-            0   0   1   1       3 data bytes 
-            0   1   0   0       4 data bytes 
-            0   1   0   1       5 data bytes 
-            0   1   1   0       6 data bytes 
-            0   1   1   1       7 data bytes 
-            1   0   0   0       8 data bytes 
-            1   0   0   1       8 data bytes                12 data bytes 
-            1   0   1   0                                   16 data bytes 
-            1   0   1   1                                   20 data bytes 
-            1   1   0   0                                   24 data bytes 
-            1   1   0   1                                   32 data bytes 
-            1   1   1   0                                   48 data bytes 
-            1   1   1   1                                   64 data bytes 
-
-        */
+     
         CAN_REG_SET(rrt_page[j].CFDGAFLP0_ ,CAN_REG_BIT0,ptr[j].ptr0.all);
         // CAN_REG_SET(rrt_page[j].CFDGAFLP0_ ,CAN_REG_BIT0,(1UL << 15) | (0UL << 8));        
         // CAN_REG_CLR(rrt_page[j].CFDGAFLP0_ ,CAN_REG_BIT0,CAN_REG_LENGTH_4);
 
-        /*
-            GAFLFDP[7:0]  Receive FIFO Buffer x Select 
-            (Bit position = target receive FIFO buffer number x) 
-            0: Receive FIFO buffer is not selected. 
-            1: Receive FIFO buffer is selected. 
-        */
         CAN_REG_SET(rrt_page[j].CFDGAFLP1_ ,CAN_REG_BIT0,ptr[j].ptr1.all);
         // CAN_REG_SET(rrt_page[j].CFDGAFLP1_ ,CAN_REG_BIT0,0x00000001);
         
@@ -638,24 +611,27 @@ static void can_rrt_set(CAN_REG_TYP * can,
 
     for(q=0;q<CAN_RX_RULE_TABLE_AMOUNT;q++)
     {
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=q;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=0;
         p->rrt_handle[q].id.bit.RTR=0;
         
-        // p->rrt_handle[q].mask.bit.MID=0xFFF;
-        // p->rrt_handle[q].mask.bit.MID=0x1FFFFFFF;
-        p->rrt_handle[q].mask.bit.MID=0;
+        //RCFDCnCFDGAFLMj
+        // p->rrt_handle[q].mask.bit.MID=STANDARD_ID_BIT_IS_COMPARED;
+        // p->rrt_handle[q].mask.bit.MID=EXTEND_ID_BIT_IS_COMPARED;//The corresponding ID bit is compared
+        p->rrt_handle[q].mask.bit.MID=ALL_ID_BIT_IS_NOT_COMPARED;//The corresponding ID bit is not compared
         p->rrt_handle[q].mask.bit.MIDE=0;
-
         p->rrt_handle[q].mask.bit.MRTR=0;
 
+        //RCFDCnCFDGAFLP0_j
         p->rrt_handle[q].ptr0.bit.RMDP=0;    //Set the receive buffer number to store received message.
         // p->rrt_handle[q].ptr0.bit.RMV=0;     //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.RMV=1;
         p->rrt_handle[q].ptr0.bit.PTR=0;     //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC=(unsigned char)CAN_DLC_DISABLE_CHECK;
 
+        //RCFDCnCFDGAFLP1_j
         //disable FIFO
         // p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);        //Receive FIFO Buffer x Select
         p->rrt_handle[q].ptr1.bit.FDPx=0x1U;   //Receive FIFO Buffer 0 Select
@@ -668,20 +644,24 @@ static void can_rrt_set(CAN_REG_TYP * can,
     //Setting for page 0(0~15) 
     {
         q=0;
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=RX_RRT0_ID;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=(unsigned char)RX_EXTEND_ID;
         p->rrt_handle[q].id.bit.RTR=(unsigned char)RX_DATA_FRAME;
         
+        //RCFDCnCFDGAFLMj
         p->rrt_handle[q].mask.bit.MID=0xFFF;
         p->rrt_handle[q].mask.bit.MIDE=0;
         p->rrt_handle[q].mask.bit.MRTR=0;
 
+        //RCFDCnCFDGAFLP0_j
         p->rrt_handle[q].ptr0.bit.RMDP=0;      //Set the receive buffer number to store received message.
         p->rrt_handle[q].ptr0.bit.RMV=0;       //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.PTR=0;       //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC= (unsigned char)CAN_DLC_DISABLE_CHECK;
         
+        //RCFDCnCFDGAFLP1_j
         //enable RX FIFO
         p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);     //Receive FIFO Buffer 0 Selected(select by bit filed)  / one FIFO buffer depth 128 message
         p->rrt_handle[q].ptr1.bit.FDPk=0;                                     //Transmit/Receive FIFO Buffer disable
@@ -689,40 +669,48 @@ static void can_rrt_set(CAN_REG_TYP * can,
     
     {
         q=1;
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=RX_RRT1_ID;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=(unsigned char)RX_EXTEND_ID;
         p->rrt_handle[q].id.bit.RTR=(unsigned char)RX_DATA_FRAME;
         
+        //RCFDCnCFDGAFLMj
         p->rrt_handle[q].mask.bit.MID=0xFFF;
         p->rrt_handle[q].mask.bit.MIDE=0;
         p->rrt_handle[q].mask.bit.MRTR=0;
 
+        //RCFDCnCFDGAFLP0_j
         p->rrt_handle[q].ptr0.bit.RMDP=0;      //Set the receive buffer number to store received message.
         p->rrt_handle[q].ptr0.bit.RMV=0;       //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.PTR=0;       //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC= (unsigned char)CAN_DLC_DISABLE_CHECK;
         
+        //RCFDCnCFDGAFLP1_j
         //enable RX FIFO
         p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);     //Receive FIFO Buffer 0 Selected(select by bit filed)  / one FIFO buffer depth 128 message
         p->rrt_handle[q].ptr1.bit.FDPk=0;                                     //Transmit/Receive FIFO Buffer disable
     }    
     {
         q=2;
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=RX_RRT2_ID;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=(unsigned char)RX_EXTEND_ID;
         p->rrt_handle[q].id.bit.RTR=(unsigned char)RX_DATA_FRAME;
         
+        //RCFDCnCFDGAFLMj
         p->rrt_handle[q].mask.bit.MID=0xFFF;
         p->rrt_handle[q].mask.bit.MIDE=0;
         p->rrt_handle[q].mask.bit.MRTR=0;
 
+        //RCFDCnCFDGAFLP0_j
         p->rrt_handle[q].ptr0.bit.RMDP=0;      //Set the receive buffer number to store received message.
         p->rrt_handle[q].ptr0.bit.RMV=0;       //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.PTR=0;       //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC= (unsigned char)CAN_DLC_DISABLE_CHECK;
         
+        //RCFDCnCFDGAFLP1_j
         //enable RX FIFO
         p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);     //Receive FIFO Buffer 0 Selected(select by bit filed)  / one FIFO buffer depth 128 message
         p->rrt_handle[q].ptr1.bit.FDPk=0;                                     //Transmit/Receive FIFO Buffer disable
@@ -730,40 +718,48 @@ static void can_rrt_set(CAN_REG_TYP * can,
     
     {
         q=3;
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=RX_RRT3_ID;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=(unsigned char)RX_EXTEND_ID;
         p->rrt_handle[q].id.bit.RTR=(unsigned char)RX_DATA_FRAME;
         
+        //RCFDCnCFDGAFLMj
         p->rrt_handle[q].mask.bit.MID=0xFFF;
         p->rrt_handle[q].mask.bit.MIDE=0;
         p->rrt_handle[q].mask.bit.MRTR=0;
 
+        //RCFDCnCFDGAFLP0_j
         p->rrt_handle[q].ptr0.bit.RMDP=0;      //Set the receive buffer number to store received message.
         p->rrt_handle[q].ptr0.bit.RMV=0;       //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.PTR=0;       //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC= (unsigned char)CAN_DLC_DISABLE_CHECK;
         
+        //RCFDCnCFDGAFLP1_j
         //enable RX FIFO
         p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);     //Receive FIFO Buffer 0 Selected(select by bit filed)  / one FIFO buffer depth 128 message
         p->rrt_handle[q].ptr1.bit.FDPk=0;                                     //Transmit/Receive FIFO Buffer disable
     }
     {
         q=4;
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=RX_RRT4_ID;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=(unsigned char)RX_EXTEND_ID;
         p->rrt_handle[q].id.bit.RTR=(unsigned char)RX_DATA_FRAME;
         
+        //RCFDCnCFDGAFLMj
         p->rrt_handle[q].mask.bit.MID=0xFFF;
         p->rrt_handle[q].mask.bit.MIDE=0;
         p->rrt_handle[q].mask.bit.MRTR=0;
 
+        //RCFDCnCFDGAFLP0_j
         p->rrt_handle[q].ptr0.bit.RMDP=0;      //Set the receive buffer number to store received message.
         p->rrt_handle[q].ptr0.bit.RMV=0;       //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.PTR=0;       //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC= (unsigned char)CAN_DLC_DISABLE_CHECK;
         
+        //RCFDCnCFDGAFLP1_j
         //enable RX FIFO
         p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);     //Receive FIFO Buffer 0 Selected(select by bit filed)  / one FIFO buffer depth 128 message
         p->rrt_handle[q].ptr1.bit.FDPk=0;                                     //Transmit/Receive FIFO Buffer disable
@@ -771,40 +767,48 @@ static void can_rrt_set(CAN_REG_TYP * can,
     
     {
         q=5;
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=RX_RRT5_ID;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=(unsigned char)RX_STANDARD_ID;//RX_EXTEND_ID
         p->rrt_handle[q].id.bit.RTR=(unsigned char)RX_DATA_FRAME;
         
+        //RCFDCnCFDGAFLMj
         p->rrt_handle[q].mask.bit.MID=0xFFF;
-        p->rrt_handle[q].mask.bit.MIDE=0;
-        p->rrt_handle[q].mask.bit.MRTR=0;
+        p->rrt_handle[q].mask.bit.MIDE=1;
+        p->rrt_handle[q].mask.bit.MRTR=1;
 
-        p->rrt_handle[q].ptr0.bit.RMDP=0;      //Set the receive buffer number to store received message.
-        p->rrt_handle[q].ptr0.bit.RMV=1;       //Receive Buffer disable
-        p->rrt_handle[q].ptr0.bit.PTR=0;       //Receive Rule Label (additional infomation 12bit)
+        //RCFDCnCFDGAFLP0_j
+        p->rrt_handle[q].ptr0.bit.RMDP=0;           //Set the receive buffer number to store received message.
+        p->rrt_handle[q].ptr0.bit.RMV=1;            //0: No receive buffer is used.,1: A receive buffer is used. 
+        p->rrt_handle[q].ptr0.bit.PTR=0x5555;       //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC= (unsigned char)CAN_DLC_DISABLE_CHECK;
         
+        //RCFDCnCFDGAFLP1_j
         //enable RX FIFO
         p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);     //Receive FIFO Buffer 0 Selected(select by bit filed)  / one FIFO buffer depth 128 message
         p->rrt_handle[q].ptr1.bit.FDPk=0;                                     //Transmit/Receive FIFO Buffer disable
     }
     {
         q=6;
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=RX_RRT6_ID;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=(unsigned char)RX_EXTEND_ID;
         p->rrt_handle[q].id.bit.RTR=(unsigned char)RX_DATA_FRAME;
         
+        //RCFDCnCFDGAFLMj
         p->rrt_handle[q].mask.bit.MID=0xFFF;
         p->rrt_handle[q].mask.bit.MIDE=0;
         p->rrt_handle[q].mask.bit.MRTR=0;
 
+        //RCFDCnCFDGAFLP0_j
         p->rrt_handle[q].ptr0.bit.RMDP=0;      //Set the receive buffer number to store received message.
         p->rrt_handle[q].ptr0.bit.RMV=0;       //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.PTR=0;       //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC= (unsigned char)CAN_DLC_DISABLE_CHECK;
         
+        //RCFDCnCFDGAFLP1_j
         //enable RX FIFO
         p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);     //Receive FIFO Buffer 0 Selected(select by bit filed)  / one FIFO buffer depth 128 message
         p->rrt_handle[q].ptr1.bit.FDPk=0;                                     //Transmit/Receive FIFO Buffer disable
@@ -812,67 +816,79 @@ static void can_rrt_set(CAN_REG_TYP * can,
     
     {
         q=7;
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=RX_RRT7_ID;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=(unsigned char)RX_EXTEND_ID;
         p->rrt_handle[q].id.bit.RTR=(unsigned char)RX_DATA_FRAME;
         
+        //RCFDCnCFDGAFLMj
         p->rrt_handle[q].mask.bit.MID=0xFFF;
         p->rrt_handle[q].mask.bit.MIDE=0;
         p->rrt_handle[q].mask.bit.MRTR=0;
 
+        //RCFDCnCFDGAFLP0_j
         p->rrt_handle[q].ptr0.bit.RMDP=0;      //Set the receive buffer number to store received message.
         p->rrt_handle[q].ptr0.bit.RMV=0;       //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.PTR=0;       //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC= (unsigned char)CAN_DLC_DISABLE_CHECK;
         
+        //RCFDCnCFDGAFLP1_j
         //enable RX FIFO
         p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);     //Receive FIFO Buffer 0 Selected(select by bit filed)  / one FIFO buffer depth 128 message
         p->rrt_handle[q].ptr1.bit.FDPk=0;                                     //Transmit/Receive FIFO Buffer disable
     }  
     {
         q=8;
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=RX_RRT8_ID;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=(unsigned char)RX_EXTEND_ID;
         p->rrt_handle[q].id.bit.RTR=(unsigned char)RX_DATA_FRAME;
         
+        //RCFDCnCFDGAFLMj
         p->rrt_handle[q].mask.bit.MID=0xFFF;
         p->rrt_handle[q].mask.bit.MIDE=0;
         p->rrt_handle[q].mask.bit.MRTR=0;
 
+        //RCFDCnCFDGAFLP0_j
         p->rrt_handle[q].ptr0.bit.RMDP=0;      //Set the receive buffer number to store received message.
         p->rrt_handle[q].ptr0.bit.RMV=0;       //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.PTR=0;       //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC= (unsigned char)CAN_DLC_DISABLE_CHECK;
         
+        //RCFDCnCFDGAFLP1_j
         //enable RX FIFO
         p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);     //Receive FIFO Buffer 0 Selected(select by bit filed)  / one FIFO buffer depth 128 message
         p->rrt_handle[q].ptr1.bit.FDPk=0;                                     //Transmit/Receive FIFO Buffer disable
     }
     {
         q=9;
+        //RCFDCnCFDGAFLIDj
         p->rrt_handle[q].id.bit.ID=RX_RRT9_ID;
         p->rrt_handle[q].id.bit.LB=0;
         p->rrt_handle[q].id.bit.IDE=(unsigned char)RX_EXTEND_ID;
         p->rrt_handle[q].id.bit.RTR=(unsigned char)RX_DATA_FRAME;
         
+        //RCFDCnCFDGAFLMj
         p->rrt_handle[q].mask.bit.MID=0xFFF;
         p->rrt_handle[q].mask.bit.MIDE=0;
         p->rrt_handle[q].mask.bit.MRTR=0;
 
+        //RCFDCnCFDGAFLP0_j
         p->rrt_handle[q].ptr0.bit.RMDP=0;      //Set the receive buffer number to store received message.
         p->rrt_handle[q].ptr0.bit.RMV=0;       //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.PTR=0;       //Receive Rule Label (additional infomation 12bit)
         p->rrt_handle[q].ptr0.bit.DLC= (unsigned char)CAN_DLC_DISABLE_CHECK;
         
+        //RCFDCnCFDGAFLP1_j
         //enable RX FIFO
         p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);     //Receive FIFO Buffer 0 Selected(select by bit filed)  / one FIFO buffer depth 128 message
         p->rrt_handle[q].ptr1.bit.FDPk=0;                                     //Transmit/Receive FIFO Buffer disable
     }    
     #endif
 
-    can_receive_rule_setting(can,(CAN_CHANNEL_SEL_e)can_bus_parameter_ch1.CAN_CH,16);
+    can_receive_rule_setting(can,(CAN_CHANNEL_SEL_e)can_bus_parameter_ch1.CAN_CH,CAN_RX_RULE_CURRENT_AMOUNT);
 
     //enable rrt setting
     CAN_REG_SET(can->CFDGAFLECTR.UINT32,CAN_REG_BIT8,CAN_REG_LENGTH_1);     //AFLDAE
@@ -888,7 +904,7 @@ static void can_rrt_set(CAN_REG_TYP * can,
 
     /* Set Rx buffer number*/
     //maximum number of RX buffer is 128    
-    // CAN_REG_SET(can->CFDRMNB.UINT32,CAN_REG_BIT0,16);     //NRXMB
+    // CAN_REG_SET(can->CFDRMNB.UINT32,CAN_REG_BIT0,CAN_RX_RULE_CURRENT_AMOUNT);     //NRXMB
 }
 
 // static void can_tx_normal_buffer_set(CAN_BUS_HANDLE *p,CAN_FD_MODE_e mode)
@@ -1156,10 +1172,10 @@ void can_rx_interrupt_cbk(void)
 	can_bus_parameter_ch1.can_rx_isr_cnt++;
 
     can_rx_fifo_read(&RCFDC0,&can_bus_handle_ch1,can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);
-   // tiny_printf("rx int1:0x%08X\r\n",can_bus_handle_ch1.rx_data[can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM][0].id.all);
+    // tiny_printf("rx int1:0x%08X\r\n",can_bus_handle_ch1.rx_data[can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM][0].id.all);
     
-   // can_rx_fifo_buf_int_check(&RCFDC0,&can_bus_handle_ch1,can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);
-   // tiny_printf("rx int2:0x%08X\r\n",can_bus_handle_ch1.rx_data[can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM][0].id.all);
+    // can_rx_fifo_buf_int_check(&RCFDC0,&can_bus_handle_ch1,can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);
+    // tiny_printf("rx int2:0x%08X\r\n",can_bus_handle_ch1.rx_data[can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM][0].id.all);
 
     can_fd_receive_fifo_buffer_decode(&RCFDC0,can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);
 
@@ -2102,7 +2118,7 @@ void can_fd_loop_process(void)
 {
     unsigned int transmit_buffer_id = 0;
     unsigned int p_number=0;    
-    unsigned char tx3buffer[16] = {0};
+    unsigned char txbuffer[64] = {0};
     static unsigned char count = 0;
 
     // unsigned int ary_data[8] = {0};
@@ -2119,15 +2135,15 @@ void can_fd_loop_process(void)
 		can_bus_parameter_ch1.can_tx4_flag=0;          
         
         // prepare data
-        transmit_buffer_id = 0x102;
-        p_number = 0;
+        transmit_buffer_id = 0x208;
+        p_number = 3;
 
         for(i = 0; i < 64 ;i++)
         {
-            tx3buffer[i] = 0x30+i+count;
+            txbuffer[i] = 0x10+i+count;
         }
         count += 0x10;
-        can_tx_normal_buffer4_set(&can_bus_handle_ch1,can_bus_parameter_ch1.CAN_MODE,p_number,transmit_buffer_id,tx3buffer);
+        can_tx_normal_buffer4_set(&can_bus_handle_ch1,can_bus_parameter_ch1.CAN_MODE,p_number,transmit_buffer_id,txbuffer);
 		can_tx_buf_data_multi_send(&RCFDC0,&can_bus_handle_ch1.tx_handle[0],can_bus_parameter_ch1.CAN_CH,1,64);
 
         tiny_printf("CAN TX4 xfer finish\r\n");
@@ -2143,10 +2159,10 @@ void can_fd_loop_process(void)
 
         for(i = 0; i < 16 ;i++)
         {
-            tx3buffer[i] = 0x30+i+count;
+            txbuffer[i] = 0x30+i+count;
         }
         count += 0x10;
-        can_tx_normal_buffer3_set(&can_bus_handle_ch1,can_bus_parameter_ch1.CAN_MODE,p_number,transmit_buffer_id,tx3buffer);
+        can_tx_normal_buffer3_set(&can_bus_handle_ch1,can_bus_parameter_ch1.CAN_MODE,p_number,transmit_buffer_id,txbuffer);
 		can_tx_buf_data_multi_send(&RCFDC0,&can_bus_handle_ch1.tx_handle[0],can_bus_parameter_ch1.CAN_CH,1,16);
 
         tiny_printf("CAN TX3 xfer finish\r\n");

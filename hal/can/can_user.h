@@ -383,6 +383,7 @@ typedef struct
 }CAN_BUS_DATA_HANDLE;
 
 #define CAN_RX_RULE_TABLE_AMOUNT                    32
+#define CAN_RX_RULE_CURRENT_AMOUNT                  (10)
 #define CAN_TX_BUFFER_AMOUNT                        32
 #define CAN_RX_FIFO_BUFFER_AMOUNT                   8               //fix to 8 for hardware resource limitation 
 #define CAN_RX_FIFO_DEPTH                           16             //max fifo level : 128
