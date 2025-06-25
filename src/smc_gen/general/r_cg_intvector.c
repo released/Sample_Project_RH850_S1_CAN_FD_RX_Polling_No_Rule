@@ -91,9 +91,9 @@ extern void eiint20(void);
 /* Dedicated interrupt for on-chip debug function; */
 extern void eiint21(void);
 /* CAN global error interrupt; */
-extern void can_global_error_interrupt(void);
+extern void eiint22(void);
 /* CAN receive FIFO interrupt; */
-extern void can_rx_fifo_interrupt(void);
+extern void eiint23(void);
 /* CAN0 error interrupt; */
 extern void eiint24(void);
 /* CAN0 transmit/receive FIFO receive complete interrupt; */
@@ -810,9 +810,9 @@ void * const INT_Vectors[] = {
     /* Dedicated interrupt for on-chip debug function; */
     (void *)eiint21,
     /* CAN global error interrupt; */
-    (void *)can_global_error_interrupt,
+    (void *)eiint22,
     /* CAN receive FIFO interrupt; */
-    (void *)can_rx_fifo_interrupt,
+    (void *)eiint23,
     /* CAN0 error interrupt; */
     (void *)eiint24,
     /* CAN0 transmit/receive FIFO receive complete interrupt; */

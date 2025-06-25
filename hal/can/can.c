@@ -618,14 +618,18 @@ static void can_rrt_set(CAN_REG_TYP * can,
         p->rrt_handle[q].id.bit.RTR=0;
         
         //RCFDCnCFDGAFLMj
-        // p->rrt_handle[q].mask.bit.MID=STANDARD_ID_BIT_IS_COMPARED;
+        #if defined (CAN_USE_RX_RULE)
+        p->rrt_handle[q].mask.bit.MID=STANDARD_ID_BIT_IS_COMPARED;
         // p->rrt_handle[q].mask.bit.MID=EXTEND_ID_BIT_IS_COMPARED;//The corresponding ID bit is compared
+        #else
         p->rrt_handle[q].mask.bit.MID=ALL_ID_BIT_IS_NOT_COMPARED;//The corresponding ID bit is not compared
+        #endif
         p->rrt_handle[q].mask.bit.MIDE=0;
         p->rrt_handle[q].mask.bit.MRTR=0;
 
         //RCFDCnCFDGAFLP0_j
-        p->rrt_handle[q].ptr0.bit.RMDP=0;    //Set the receive buffer number to store received message.
+        // p->rrt_handle[q].ptr0.bit.RMDP=0;    //Set the receive buffer number to store received message.
+        p->rrt_handle[q].ptr0.bit.RMDP=can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM;    //Set the receive buffer number to store received message.
         // p->rrt_handle[q].ptr0.bit.RMV=0;     //Receive Buffer disable
         p->rrt_handle[q].ptr0.bit.RMV=1;
         p->rrt_handle[q].ptr0.bit.PTR=0;     //Receive Rule Label (additional infomation 12bit)
@@ -633,8 +637,7 @@ static void can_rrt_set(CAN_REG_TYP * can,
 
         //RCFDCnCFDGAFLP1_j
         //disable FIFO
-        // p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);        //Receive FIFO Buffer x Select
-        p->rrt_handle[q].ptr1.bit.FDPx=0x1U;   //Receive FIFO Buffer 0 Select
+        p->rrt_handle[q].ptr1.bit.FDPx=(0x1<<can_bus_parameter_ch1.CAN_RX_FIFO_BUFFER_NUM);        //Receive FIFO Buffer x Select
         
         p->rrt_handle[q].ptr1.bit.FDPk=0;       //Transmit/Receive FIFO Buffer k Select
     }
@@ -1038,8 +1041,6 @@ static void can_normal_mode_set(CAN_REG_TYP * can,
 
         while(CAN_REG_READ(can->CFDGSTS.UINT32,CAN_REG_BIT2,CAN_REG_LENGTH_1)!=0);  //GSLPSTS
 
-        // R_CANFD_Global_error_Interrupt_Init();
-
         //===========only for F1KM-S1 R7F701587x Kit init.===================
         //CAN_REG_SET(can->CFDGRMCFG.UINT32,CAN_REG_BIT0,CAN_REG_LENGTH_1);   //set as FD mode  
         //===================================================================
@@ -1241,189 +1242,6 @@ void can_init(void)
     can_reg_dump_log();
 }
 
-// void R_CLKC_SetRscanClockDomain(uint32_t RscanModuleClockDomain, uint32_t RscanComClockDomain)
-// {
-    // /* Select RS-CAN Module Clock */
-    // protected_write(WPROTR.PROTCMD1, WPROTR.PROTS1, CLKCTL.CKSC_ICANS_CTL, RscanModuleClockDomain);
-    // while (CLKCTL.CKSC_ICANS_ACT !=RscanModuleClockDomain);
-
-    // /* Select RS-CAN Communication Clock */
-    // protected_write(WPROTR.PROTCMD1, WPROTR.PROTS1, CLKCTL.CKSC_ICANOSCD_CTL, RscanComClockDomain);
-    // while (CLKCTL.CKSC_ICANOSCD_CTL != RscanComClockDomain);
-// }
-
-
-/*
-    need to replace when code generage EACH TIMES
-*/
-// TODO : 
-// @ r_cg_invector.c
-
-// [SEARCH1]
-// /* CAN receive FIFO interrupt; */
-// extern void eiint23(void);
-
-// [REPLACE WITH BELOW]
-/* CAN receive FIFO interrupt; */
-// extern void can_rx_fifo_interrupt(void);
-
-// [SEARCH2]
-// /* CAN receive FIFO interrupt; */
-// (void *)eiint23,
-
-// [REPLACE WITH BELOW]
-// /* CAN receive FIFO interrupt; */
-// (void *)can_rx_fifo_interrupt,
-
-
-/* CAN GLOBAL ERROR INTERRUPT */
-#pragma interrupt can_global_error_interrupt(enable=false, channel=22, fpu=true, callt=false)
-void can_global_error_interrupt(void)
-{
-    can_global_error_interrupt_cbk(&RCFDC0);
-}
-
-// #pragma interrupt can_rx_fifo_interrupt(enable=false, channel=23, fpu=true, callt=false)
-void can_rx_fifo_interrupt(void)
-{
-    /* Start user code for can_rx_fifo_interrupt. Do not edit comment generated here */
-    can_rx_interrupt_cbk();
-    /* End user code. Do not edit comment generated here */
-}
-
-
-// void R_CANFD_Global_error_Interrupt_Init(void)
-// {
-
-    // global error
-    // INTC1.ICRCANGERR0.BIT.TBRCANGERR0 = _INT_TABLE_VECTOR; //select table interrupt
-    // INTC1.ICRCANGERR0.BIT.RFRCANGERR0 = _INT_REQUEST_NOT_OCCUR;
-    // INTC1.ICRCANGERR0.BIT.MKRCANGERR0 = _INT_PROCESSING_ENABLED;
-    // /*
-        // Corresponding Interrupt Enable Bit
-        // DEIE in the RCFDCnCFDGCTR register 
-        // MEIE in the RCFDCnCFDGCTR register 
-        // THLEIE in the RCFDCnCFDGCTR register 
-        // CMPOFIE in the RCFDCnCFDGCTR register 
-    // */
-
-    // CAN_REG_CLR(RCFDC0.CFDGCTR.UINT32,CAN_REG_BIT8,CAN_REG_LENGTH_1);   //DEIE
-    // CAN_REG_SET(RCFDC0.CFDGCTR.UINT32,CAN_REG_BIT8,CAN_REG_LENGTH_1);
-
-    // /*
-        // DEIE Bit 
-        // When the DEIE bit is set to 1 and the DEF flag in the RCFDCnCFDGERFL register is set to 1, an interrupt request is 
-        // generated. Modify this bit only in global reset mode. 
-
-        // DLC Error Interrupt Enable 
-        // 0: DLC error interrupt is disabled. 
-        // 1: DLC error interrupt is enabled.     
-    // */
-
-    // CAN_REG_CLR(RCFDC0.CFDGCTR.UINT32,CAN_REG_BIT9,CAN_REG_LENGTH_1);   //MEIE
-    // CAN_REG_SET(RCFDC0.CFDGCTR.UINT32,CAN_REG_BIT9,CAN_REG_LENGTH_1);
-
-    // /*
-        // MEIE Bit 
-        // When the MEIE bit is set to 1 and the MES flag in the RCFDCnCFDGERFL register is set to 1, an interrupt request is 
-        // generated. Modify this bit only in global reset mode. 
-
-        // FIFO Message Lost Interrupt Enable 
-        // 0: FIFO message lost interrupt is disabled. 
-        // 1: FIFO message lost interrupt is enabled.     
-    // */
-
-    // CAN_REG_CLR(RCFDC0.CFDGCTR.UINT32,CAN_REG_BIT10,CAN_REG_LENGTH_1);  //THLEIE
-    // CAN_REG_SET(RCFDC0.CFDGCTR.UINT32,CAN_REG_BIT10,CAN_REG_LENGTH_1);
-
-    // /*
-        // THLEIE Bit 
-        // When the THLEIE bit is set to 1 and the THLES flag in the RCFDCnCFDGERFL register is set to 1, an interrupt 
-        // request is generated. Modify this bit only in global reset mode. 
-
-        // Transmit History Buffer Overflow Interrupt Enable 
-        // 0: Transmit history buffer overflow interrupt is disabled. 
-        // 1: Transmit history buffer overflow interrupt is enabled.    
-    // */
-
-    // CAN_REG_CLR(RCFDC0.CFDGCTR.UINT32,CAN_REG_BIT11,CAN_REG_LENGTH_1);  //CMPOFIE 
-    // CAN_REG_SET(RCFDC0.CFDGCTR.UINT32,CAN_REG_BIT11,CAN_REG_LENGTH_1);
-
-    // /*
-        // CMPOFIE Bit 
-        // When the CMPOF flag in the RCFDCnCFDGERFL register is set to 1 after the CMPOFIE bit is set to 1, an interrupt 
-        // request occurs. Modify this bit only in global reset mode. 
-
-        // Payload Overflow Interrupt Enable 
-        // 0: A payload overflow interrupt is disabled. 
-        // 1: A payload overflow interrupt is enabled.     
-    // */
-// }
-
-// void R_CANFD_Interrupt_Control_Init(void)
-// {
-    /*
-        22   ICRCANGERR0  	FFFE EA2C H   INTRCANGERR0  	CAN global error interrupt 
-        23   ICRCANGRECC0  	FFFE EA2E H   INTRCANGRECC0  	CAN receive FIFO interrupt
-        
-        24   ICRCAN0ERR  	FFFE EA30 H   INTRCAN0ERR  		CAN0 error interrupt
-        25   ICRCAN0REC  	FFFE EA32 H   INTRCAN0REC  		CAN0 transmit/receive FIFO receive complete interrupt 
-        26   ICRCAN0TRX  	FFFE EA34 H   INTRCAN0TRX  		CAN0 transmit interrupt
-        
-        113  ICRCAN1ERR  	FFFF B0E2 H   INTRCAN1ERR  		CAN1 error interrupt
-        114  ICRCAN1REC  	FFFF B0E4 H   INTRCAN1REC  		CAN1 transmit/receive FIFO receive complete interrupt 
-        115  ICRCAN1TRX  	FFFF B0E6 H   INTRCAN1TRX  		CAN1 transmit interrupt
-                    
-        217  ICRCAN2ERR  	FFFF B1B2 H   INTRCAN2ERR  		CAN2 error interrupt
-        218  ICRCAN2REC  	FFFF B1B4 H   INTRCAN2REC  		CAN2 transmit/receive FIFO receive complete interrupt 
-        219  ICRCAN2TRX  	FFFF B1B6 H   INTRCAN2TRX  		CAN2 transmit interrupt  
-                    
-        220  ICRCAN3ERR  	FFFF B1B8 H   INTRCAN3ERR  		CAN3 error interrupt  
-        221  ICRCAN3REC  	FFFF B1BA H   INTRCAN3REC  		CAN3 transmit/receive FIFO receive complete interrupt 
-        222  ICRCAN3TRX  	FFFF B1BC H   INTRCAN3TRX  		CAN3 transmit interrupt
-                    
-        272  ICRCAN4ERR  	FFFF B220 H   INTRCAN4ERR  		CAN4 error interrupt  
-        273  ICRCAN4REC  	FFFF B222 H   INTRCAN4REC  		CAN4 transmit/receive FIFO receive complete interrupt 
-        274  ICRCAN4TRX  	FFFF B224 H   INTRCAN4TRX  		CAN4 transmit interrupt
-                    
-        287  ICRCAN5ERR  	FFFF B23E H   INTRCAN5ERR  		CAN5 error interrupt  
-        288  ICRCAN5REC  	FFFF B240 H   INTRCAN5REC  		CAN5 transmit/receive FIFO receive complete interrupt 
-        289  ICRCAN5TRX  	FFFF B242 H   INTRCAN5TRX  		CAN5 transmit interrupt
-    */
-
-    /*INTRCANGRECC0 : CAN CHANNEL RX FIFO interrupt*/
-
-    // INTC1.ICRCANGRECC0.BIT.CTRCANGRECC0 = 1;
-    // INTC1.ICRCANGRECC0.BIT.RFRCANGRECC0 = _INT_REQUEST_NOT_OCCUR;        
-    // INTC1.ICRCANGRECC0.BIT.MKRCANGRECC0 = _INT_PROCESSING_ENABLED;
-    // INTC1.ICRCANGRECC0.BIT.TBRCANGRECC0 = _INT_TABLE_VECTOR; //select table interrupt
-
-    // INTC1.ICRCANGRECC0.BIT.P3RCANGRECC0 = 1;
-    // INTC1.ICRCANGRECC0.BIT.P2RCANGRECC0 = 1;
-    // INTC1.ICRCANGRECC0.BIT.P1RCANGRECC0 = 1;
-    // INTC1.ICRCANGRECC0.BIT.P0RCANGRECC0 = 1;
-
-    //CAN Receive/Transmit FIFO receive complete interrupt
-//    // INTC1.ICRCAN1REC.BIT.TBRCAN1REC = _INT_TABLE_VECTOR;
-//    // INTC1.ICRCAN1REC.BIT.MKRCAN1REC = _INT_PROCESSING_ENABLED;
-//    // INTC1.ICRCAN1REC.BIT.RFRCAN1REC = _INT_REQUEST_NOT_OCCUR;
-
-    //CAN channel 1 Transmission interrupt
-//    // INTC1.ICRCAN1TRX.BIT.TBRCAN1TRX = _INT_TABLE_VECTOR;
-//    // INTC1.ICRCAN1TRX.BIT.MKRCAN1TRX = _INT_PROCESSING_ENABLED;
-//    // INTC1.ICRCAN1TRX.BIT.RFRCAN1TRX = _INT_REQUEST_NOT_OCCUR;
-
-// }
-
-void R_CANFD_Deinit(void)
-{
-    // R_PORT_SetGpioHighZ(Port0, 7);
-    // R_PORT_SetGpioHighZ(Port0, 8);
-    // R_PORT_SetGpioHighZ(Port0, 9);
-    // R_PORT_SetGpioHighZ(Port0, 10);
-}
-
-
 /*
     F1KM/S1
     refer to c  Alternative Function , Table 2C.41
@@ -1490,7 +1308,6 @@ void R_CANFD_Init(void)
 
     can_init();
 }
-
 
 void can_reg_dump_log(void)
 {
@@ -1754,81 +1571,6 @@ static void can_tx_normal_buffer1_set(CAN_BUS_HANDLE *p,CAN_FD_MODE_e mode,unsig
     counter++;
 }
 
-
-unsigned char can_global_error_interrupt_cbk(CAN_REG_TYP * can)
-{
-
-    // /*
-        // DEF in the RCFDCnCFDGERFL register
-        // MES in the RCFDCnCFDGERFL register
-        // THLES in the RCFDCnCFDGERFL register
-        // CMPOF in the RCFDCnCFDGERFL register    
-    // */
-
-    if (CAN_REG_READ(can->CFDGERFL.UINT32,CAN_REG_BIT0,0x1U))
-    {
-        // /*
-            // DEF  DLC Error Flag 
-            // 0: No DLC error has occurred. 
-            // 1: A DLC error has occurred.       
-            
-            // DEF Flag 
-            // The DEF flag is set to 1 when an error has been detected during the DLC check. The program can clear this flag by 
-            // writing 0 to this bit. 
-            // To clear the flags of the register to 0, the program must write 0 to the corresponding flag to be cleared. When writing 0, 
-            // using store instruction, set the bit to be set to “0” to “0”, and the bits not to be set to “0” to “1”.             
-
-        // */
-       
-       // CAN_REG_CLR(can->CFDGERFL.UINT32,CAN_REG_BIT0,CAN_REG_LENGTH_1);    
-        can->CFDGERFL.UINT32 = 0xFFFFFFFEU;
-        tiny_printf("[CAN global error]DEF(DLC Error Flag)\r\n");
-    }
-
-
-    if (CAN_REG_READ(can->CFDGERFL.UINT32,CAN_REG_BIT1,0x1U))
-    {
-        // /*
-            // MES  FIFO Message Lost Status Flag 
-            // 0: No FIFO message lost error has occurred. 
-            // 1: A FIFO message lost error has occurred. 
-        // */
-       
-        CAN_REG_CLR(can->CFDGERFL.UINT32,CAN_REG_BIT1,CAN_REG_LENGTH_1);
-        
-        tiny_printf("[CAN global error]MES(FIFO Message Lost Status Flag)\r\n");
-    }    
-
-    if (CAN_REG_READ(can->CFDGERFL.UINT32,CAN_REG_BIT2,0x1U))
-    {
-        // /*
-            // THLES  Transmit History Buffer Overflow Status Flag 
-            // 0: No transmit history buffer overflow has occurred. 
-            // 1: A transmit history buffer overflow has occurred. 
-        // */
-       
-        CAN_REG_CLR(can->CFDGERFL.UINT32,CAN_REG_BIT2,CAN_REG_LENGTH_1);
-        
-        tiny_printf("[CAN global error]THLES(Transmit History Buffer Overflow Status Flag)\r\n");
-    }    
-
-    if (CAN_REG_READ(can->CFDGERFL.UINT32,CAN_REG_BIT3,0x1U))
-    {
-        // /*
-            // CMPOF  Payload Overflow Flag 
-            // 0: No payload overflow has occurred. 
-            // 1: A payload overflow has occurred. 
-        // */
-       
-       // CAN_REG_CLR(can->CFDGERFL.UINT32,CAN_REG_BIT3,CAN_REG_LENGTH_1);    
-        can->CFDGERFL.UINT32 = 0xFFFFFFF7U;
-        
-        tiny_printf("[CAN global error]CMPOF(Payload Overflow Flag)\r\n");
-    }    
-
-    return 0;
-}
-
 /*
     −  Receive buffers (RCFDCnCFDRMIDq, RCFDCnCFDRMPTRq, RCFDCnCFDRMFDSTSq, RCFDCnCFDRMDFb_q registers) 
 */
@@ -2056,7 +1798,7 @@ void can_fd_receive_fifo_buffer_decode(CAN_REG_TYP * can, CAN_RX_FIFO_BUFER_NUMB
         tiny_printf("[%2d:0x%08X]0x%08X\r\n",i,&rfdf0_0[i].UINT32,rfdf0_0[i].UINT32);
     }
 
-    tiny_printf("\r\n"); 
+    // tiny_printf("\r\n"); 
 }
 
 void can_fd_receive_fifo_buffer_status(CAN_REG_TYP * can, CAN_RX_FIFO_BUFER_NUMBER_e rfi_number)
@@ -2080,7 +1822,7 @@ void can_fd_receive_fifo_buffer_status(CAN_REG_TYP * can, CAN_RX_FIFO_BUFER_NUMB
                     can->CFDRFSTS0.UINT32); 
 
         re_val = CAN_REG_READ(rfsts0[rfi_number].UINT32,CAN_REG_BIT8,0xFFU);
-        tiny_printf("--RFMC:0x%02X",re_val); //RFMC[7:0]  Receive FIFO Unread Message Counter  
+        tiny_printf("--RFMC:0x%02X\r\n",re_val); //RFMC[7:0]  Receive FIFO Unread Message Counter  
 
         re_val = CAN_REG_READ(rfsts0[rfi_number].UINT32,CAN_REG_BIT3,0x1U);
         tiny_printf("--RFIF:0x%02X",re_val); //RFIF  Receive FIFO Interrupt Request Flag
@@ -2108,7 +1850,7 @@ void can_fd_receive_fifo_buffer_status(CAN_REG_TYP * can, CAN_RX_FIFO_BUFER_NUMB
 
         rfpctr[rfi_number].UINT8[0]=0xFF;
 
-        tiny_printf("\r\n"); 
+        // tiny_printf("\r\n"); 
     
         CAN_REG_CLR(can->CFDRMND0.UINT32,CAN_REG_BIT0,CAN_REG_LENGTH_1);
     }
